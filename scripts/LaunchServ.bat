@@ -1,3 +1,2 @@
-python .\mitm.py --server  --dump-to "..\LOGS\firstLog.txt" --attach
-
+python .\mitm.py --server
 pause

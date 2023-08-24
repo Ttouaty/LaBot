@@ -18,11 +18,9 @@ from labot.mitm.bridge import *
 
 from fritm import hook, start_proxy_server
 import subprocess
+from datetime import datetime
 
-# FILTER = "port == 5555 || port == 443"
 FILTER = "port == 5555 || port == 443"
-
-
 
 class DofusWaiter(object):
 
@@ -32,7 +30,7 @@ class DofusWaiter(object):
         self.device.on("child-added", lambda child: self.onNewChild(child))
 
         launcherPID = self.getPID_FromProcess("Ankama Launcher.exe");
-        # print("PID is => "+str(launcherPID))
+        print("Ankama launcher PID is => "+str(launcherPID))
         self.dofusSession = self.device.attach(launcherPID)
         self.dofusSession.enable_child_gating()
         self.dofusSession.resume();
@@ -62,33 +60,12 @@ class DofusWaiter(object):
 
 
 def onDofusLaunched(pid):
-    print("I GOT THE DOFUS ! => "+str(pid))
-
     try:
         hook(pid, args.port, FILTER)
-        print("Hooked to => %s with port => %s" % (target, args.port))
+        print("Hooked to => %s with port => %s" % (pid, args.port))
     except Exception as e:
         print("That's some error my dude")
         raise e;
-
-
-def launch_dofus():
-    """to interrupt : dofus.terminate()"""
-    return # can't launch dofus anymore because update
-    platform = sys.platform
-    if platform == "darwin":
-        path = "/Applications/Dofus.app/Contents/Data/Dofus.app/Contents/MacOS/Dofus"
-    elif platform == "win32":
-        appdata = os.getenv("appdata")
-        parent = os.path.dirname(appdata)
-        # path = parent + "\\Local\\Ankama\\zaap\\dofus\\Dofus.exe"
-        path = parent + "\\Local\\Ankama\\Dofus\\Dofus.exe"
-    else:
-        assert False, (
-            "Your platform (%s) doesn't support automated launch yet" % sys.platform
-        )
-    return Popen(path)
-
 
 def make_parser():
     parser = argparse.ArgumentParser(
@@ -132,15 +109,15 @@ if __name__ == "__main__":
     if args.server:
         bridges = []
         print("Launching server")
-
-        dumper = Dumper(args.dump_to) if args.dump_to else None
+        date =str(datetime.now().strftime("%Y-%m-%d %Hh%Mm%Ss"));
+        dumpFilePath = args.dump_to if args.dump_to else Path(__file__).absolute().parents[1] /"LOGS" / f"serverLog - {date}.txt"
+        dumper = Dumper(dumpFilePath)
 
         def my_callback(coJeu, coSer):
-            print("Change this line to implement own Bridge handler - totos")
             global bridges
 
-
-            bridge = InjectorBridgeHandler(coJeu, coSer, dumper=dumper)
+            # bridge = InjectorBridgeHandler(coJeu, coSer, dumper=dumper)
+            bridge = TTCustomBridgeHandler(coJeu, coSer, dumper=dumper)
             bridges.append(bridge)
             bridge.loop()
 
@@ -148,52 +125,21 @@ if __name__ == "__main__":
         # httpd = start_proxy_server(my_callback, "crashhere")
         httpd = start_proxy_server(my_callback, args.port)
 
-    # if args.launch:
-    #     dofus = launch_dofus()
-    #     target = dofus.pid
-
-    if args.attach:
-        target = args.pid
-        if target is None:
-            if sys.platform == "darwin":
-                target = "dofus"
-            elif sys.platform == "win32":
-                target = "Dofus.exe"
-            else:
-                assert False, "Your platform requires a pid to attach"
-
     # if args.launch or args.attach:
     waiter = DofusWaiter()
     waiter.waitForDofus(onDofusLaunched)
 
-    # if args.attach:
-        # try:
-        #     hook(target, args.port, FILTER)
-        #     print("Hooked to => %s with port => %s" % (target, args.port))
-        # except Exception as e:
-        #     print("You need to launch the server before starting dofus, else we can't hook to the connect function!")
     if not sys.flags.interactive:
-        print("Launched")
+        print("Waiting for dofus to start")
+        print("Press - Ctrl+C - to close the server anytime")
+        print("You can also close this window to close the server")
         try:
             sys.stdin.read()  # infinite loop
-            pass
         except KeyboardInterrupt as e:
             if httpd is not None:
                 httpd.shutdown()
                 httpd.server_close()
                 print("# Closed server\n")
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

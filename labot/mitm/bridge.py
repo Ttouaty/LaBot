@@ -152,13 +152,6 @@ class PrintingMsgBridgeHandler(MsgBridgeHandler):
         print()
 
 
-
-
-"""
-Inherit InjectorBridgeHandler and implement handle_message to change shit (might have to inherit another class if logging is too hard)
-"""
-
-
 class InjectorBridgeHandler(BridgeHandler):
     """Forwards all packets and allows to inject
     packets
@@ -172,8 +165,6 @@ class InjectorBridgeHandler(BridgeHandler):
         self.counter = 0
         self.db = deque([], maxlen=db_size)
         self.dumper = dumper
-        print("created")
-
 
     def send_to_client(self, data):
         if isinstance(data, Msg):
@@ -197,7 +188,6 @@ class InjectorBridgeHandler(BridgeHandler):
     def handle(self, data, origin):
         self.buf[origin] += data
         from_client = origin == self.coJeu
-        print("Handle")
         msg = Msg.fromRaw(self.buf[origin], from_client)
 
         while msg is not None:
@@ -229,8 +219,7 @@ class InjectorBridgeHandler(BridgeHandler):
             else:
                 self.counter += 1
             self.db.append(msg)
-            if self.dumper is not None:
-                self.dumper.dump(msg)
+           
             self.other[origin].sendall(msg.bytes())
 
             self.handle_message(parsedMsg, origin)
@@ -239,4 +228,12 @@ class InjectorBridgeHandler(BridgeHandler):
             time.sleep(0.005)
 
     def handle_message(self, m, o):
+        pass
+
+
+class TTCustomBridgeHandler(InjectorBridgeHandler):
+    def handle_message(self, m, o):
+        if self.dumper is not None:
+            self.dumper.dump(direction(o))
+            self.dumper.dump(m)
         pass

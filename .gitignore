@@ -7,3 +7,4 @@ junk/
 .mypy_cache
 .vscode
 .idea
+LOGS/
