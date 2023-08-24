@@ -11,14 +11,14 @@ from tqdm import tqdm
 class_pattern = r"\s*public class (?P<name>\w+) (?:extends (?P<parent>\w+) )?implements (?P<interface>\w+)\n"
 id_pattern = r"\s*public static const protocolId:uint = (?P<id>\d+);\n"
 public_var_pattern = r"\s*public var (?P<name>\w+):(?P<type>\S*)( = (?P<init>.*))?;\n"
-vector_type_pattern = r"Vector\.<(?P<type>\w+)>"
+vector_type_pattern = r"Vector\.<(?P<type>\w.+)>"
 
-attr_assign_pattern_of_name = r"\s*this\.%s = (?:\w*)\.read(?P<type>\w*)\(\);\n"
+attr_assign_pattern_of_name = r"\s*this\.%s = (?:\w*)\.read(?P<type>\w..*)\(\);\n"
 vector_attr_write_pattern_of_name = (
-    r"\s*(?:\w*)\.write(?P<type>\w*)\(this\.%s\[(?:\w+)\]\);\n"
+    r"\s*(?:\w*)\.write(?P<type>\w..*)\(this\.%s\[(?:\w+)\]\);\n"
 )
 vector_len_write_pattern_of_name = (
-    r"\s*(?:\w*)\.write(?P<type>\w*)\(this\.%s\.length\);\n"
+    r"\s*(?:\w*)\.write(?P<type>\w..*)\(this\.%s\.length\);\n"
 )
 vector_const_len_pattern_of_name_and_type = (
     r"\s*this\.%s = new Vector\.<%s>\((?P<size>\d+),true\);\n"
@@ -46,12 +46,28 @@ def lines(t):
 
 
 def parseVar(name, typename, lines):
+    # index = typename.rfind('.')
+    # if index != -1:
+    #     print("TT: try parse typename with last .  => "+typename)
+    #     typename = typeToTest[index + 1:]
+
+
     if typename in ["Boolean", "ByteArray"]:
         return dict(name=name, length=None, type=typename, optional=False)
     if typename in types:
         type = typename
+    else:
+        tempType = typename[typename.rfind('.') + 1:] # fix truelle for com.ankama.abc style classes
+        if tempType in types:
+            type = tempType
+
+    # print("\n________")
+    # print(name)
+    # print(typename)
+    # print(lines)
 
     m = re.fullmatch(vector_type_pattern, typename)
+    # print("regex %s \nand typename %s`\nmatched this => %s" % (vector_type_pattern, typename, str(m)))
     if m:
         return parseVectorVar(name, m.group("type"), lines)
 
@@ -60,6 +76,8 @@ def parseVar(name, typename, lines):
     optional_var_pattern = optional_var_pattern_of_name % name
 
     optional = False
+    # TT => default to false I guess ?
+    # type = False
 
     for line in lines:
         m = re.fullmatch(attr_assign_pattern, line)
@@ -73,6 +91,7 @@ def parseVar(name, typename, lines):
         m = re.fullmatch(optional_var_pattern, line)
         if m:
             optional = True
+    
 
     return dict(name=name, length=None, type=type, optional=optional)
 
@@ -80,6 +99,10 @@ def parseVar(name, typename, lines):
 def parseVectorVar(name, typename, lines):
     if typename in types:
         type = typename
+    else:
+        tempType = typename[typename.rfind('.') + 1:] # TT fix for com.ankama.abc style classes
+        if tempType in types:
+            type = tempType
 
     vector_attr_write_pattern = vector_attr_write_pattern_of_name % name
     vector_len_write_pattern = vector_len_write_pattern_of_name % name
@@ -88,6 +111,7 @@ def parseVectorVar(name, typename, lines):
         typename,
     )
     dynamic_type_pattern = dynamic_type_pattern_of_type % typename
+
 
     for line in lines:
         m = re.fullmatch(vector_attr_write_pattern, line)
@@ -130,6 +154,14 @@ def parse(t):
 
         m = re.fullmatch(public_var_pattern, line)
         if m:
+            typeToTest = m.group("type");
+            # if "Vector" not in typeToTest:
+            #     index = typeToTest.rfind('.')
+            #     if index != -1:
+            #         print("TT: try parse typename with last .  => "+typeToTest)
+            #         typeToTest = typeToTest[index + 1:]
+
+            # var = parseVar(m.group("name"), typeToTest, lines(t))
             var = parseVar(m.group("name"), m.group("type"), lines(t))
             vars.append(var)
 
@@ -169,7 +201,6 @@ def build():
 
 root_path = Path(__file__).absolute().parents[1]
 labot_path = root_path / "labot"
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Protocol builder that creates protocol.pk from the decompiled sources"
@@ -187,12 +218,21 @@ if __name__ == "__main__":
         args.sources_path / "scripts/com/ankamagames/dofus/network/types",
         args.sources_path / "scripts/com/ankamagames/dofus/network/messages",
     ]
+        # index = typename.rfind('.')
+    # if index != -1:
+    #     print("TT: try parse typename with last .  => "+typename)
+    #     typename = typeToTest[index + 1:]
 
     for p in paths:
         load_from_path(p)
+    # print("THE TYPES");
+    # print(*types, sep=',\n')
+
+    # print("")
+    # print("_____");
+
 
     build()
-
     primitives = {
         v["type"]
         for t in types.values()
